@@ -6,6 +6,9 @@ function App() {
   const [todos, setTodos] = useState([]);
   const [text, setText] = useState("");
 
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+
   // Fetch todos
   async function getTodos() {
     const { data, error } = await supabase
@@ -43,11 +46,32 @@ function App() {
     getTodos();
   }
 
+  // Start editing
+  function startEdit(todo) {
+    setEditingId(todo.id);
+    setEditingText(todo.text);
+  }
+
+  // Update todo
+  async function updateTodo(id) {
+
+    await supabase
+      .from("todos")
+      .update({ text: editingText })
+      .eq("id", id);
+
+    setEditingId(null);
+    setEditingText("");
+
+    getTodos();
+  }
+
   return (
     <div style={{ padding: 20 }}>
 
       <h1>Supabase Todo App</h1>
 
+      {/* Add */}
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -58,20 +82,58 @@ function App() {
         Add
       </button>
 
+      {/* List */}
       <ul>
-        {todos.map(todo => (
-          <li key={todo.id}>
-            {todo.text}
 
-            <button
-              onClick={() => deleteTodo(todo.id)}
-              style={{ marginLeft: 10 }}
-            >
-              Delete
-            </button>
+        {todos.map(todo => (
+
+          <li key={todo.id}>
+
+            {editingId === todo.id ? (
+              <>
+                <input
+                  value={editingText}
+                  onChange={(e) =>
+                    setEditingText(e.target.value)
+                  }
+                />
+
+                <button
+                  onClick={() => updateTodo(todo.id)}
+                >
+                  Save
+                </button>
+
+                <button
+                  onClick={() => setEditingId(null)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                {todo.text}
+
+                <button
+                  onClick={() => startEdit(todo)}
+                  style={{ marginLeft: 10 }}
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => deleteTodo(todo.id)}
+                  style={{ marginLeft: 10 }}
+                >
+                  Delete
+                </button>
+              </>
+            )}
 
           </li>
+
         ))}
+
       </ul>
 
     </div>

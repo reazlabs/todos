@@ -8,6 +8,7 @@ function App() {
   // ======================
 
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,65 +29,85 @@ function App() {
 
   useEffect(() => {
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
+    // get existing session
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setLoading(false);
+      });
 
-    const { data: listener } =
-      supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          setSession(session);
-        }
-      );
+    // listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
 
   }, []);
 
   // ======================
-  // GET TODOS (USER SPECIFIC)
+  // GET TODOS
   // ======================
 
   async function getTodos() {
 
-    if (!session) return;
-
-    const user = session.user;
+    if (!session?.user) return;
 
     const { data, error } = await supabase
       .from("todos")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", session.user.id)
       .order("id", { ascending: false });
 
-    if (!error) setTodos(data);
+    if (error) {
+      console.log(error.message);
+      return;
+    }
+
+    setTodos(data);
   }
 
   useEffect(() => {
-    getTodos();
+    if (session) getTodos();
   }, [session]);
 
   // ======================
-  // AUTH FUNCTIONS
+  // SIGN UP
   // ======================
 
   async function signUp() {
 
-    const { error } =
-      await supabase.auth.signUp({
-        email,
-        password
-      });
+    if (!email || !password) {
+      alert("Enter email and password");
+      return;
+    }
 
-    if (error)
+    const { error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (error) {
       alert(error.message);
-    else
+    } else {
       alert("Signup successful! Now login.");
+    }
   }
 
+  // ======================
+  // SIGN IN
+  // ======================
+
   async function signIn() {
+
+    if (!email || !password) {
+      alert("Enter email and password");
+      return;
+    }
 
     const { error } =
       await supabase.auth.signInWithPassword({
@@ -94,12 +115,16 @@ function App() {
         password
       });
 
-    if (error)
-      alert(error.message);
+    if (error) alert(error.message);
   }
+
+  // ======================
+  // SIGN OUT
+  // ======================
 
   async function signOut() {
     await supabase.auth.signOut();
+    setTodos([]);
   }
 
   // ======================
@@ -108,21 +133,21 @@ function App() {
 
   async function addTodo() {
 
-    if (!text) return;
+    if (!text || !session?.user) return;
 
-    const user = session.user;
-
-    await supabase
+    const { error } = await supabase
       .from("todos")
       .insert([
         {
           text,
-          user_id: user.id
+          user_id: session.user.id
         }
       ]);
 
-    setText("");
-    getTodos();
+    if (!error) {
+      setText("");
+      getTodos();
+    }
   }
 
   // ======================
@@ -164,6 +189,14 @@ function App() {
   }
 
   // ======================
+  // LOADING UI
+  // ======================
+
+  if (loading) {
+    return <h2>Loading...</h2>;
+  }
+
+  // ======================
   // LOGIN UI
   // ======================
 
@@ -176,6 +209,7 @@ function App() {
 
         <input
           placeholder="Email"
+          value={email}
           onChange={(e) =>
             setEmail(e.target.value)
           }
@@ -186,6 +220,7 @@ function App() {
         <input
           type="password"
           placeholder="Password"
+          value={password}
           onChange={(e) =>
             setPassword(e.target.value)
           }
@@ -251,9 +286,7 @@ function App() {
                 <input
                   value={editingText}
                   onChange={(e) =>
-                    setEditingText(
-                      e.target.value
-                    )
+                    setEditingText(e.target.value)
                   }
                 />
 

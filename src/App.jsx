@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import './App.css';
+import "./App.css";
 
 function App() {
 
@@ -10,6 +10,7 @@ function App() {
 
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,14 +31,14 @@ function App() {
 
   useEffect(() => {
 
-    // get existing session
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        setSession(session);
-        setLoading(false);
-      });
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      setLoading(false);
+    };
 
-    // listen for auth changes
+    getSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
@@ -62,10 +63,10 @@ function App() {
       .from("todos")
       .select("*")
       .eq("user_id", session.user.id)
-      .order("id", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.log(error.message);
+      alert(error.message);
       return;
     }
 
@@ -82,20 +83,24 @@ function App() {
 
   async function signUp() {
 
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       alert("Enter email and password");
       return;
     }
+
+    setSaving(true);
 
     const { error } = await supabase.auth.signUp({
       email,
       password
     });
 
+    setSaving(false);
+
     if (error) {
       alert(error.message);
     } else {
-      alert("Signup successful! Now login.");
+      alert("Signup successful! Now sign in.");
     }
   }
 
@@ -105,16 +110,20 @@ function App() {
 
   async function signIn() {
 
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       alert("Enter email and password");
       return;
     }
+
+    setSaving(true);
 
     const { error } =
       await supabase.auth.signInWithPassword({
         email,
         password
       });
+
+    setSaving(false);
 
     if (error) alert(error.message);
   }
@@ -124,7 +133,10 @@ function App() {
   // ======================
 
   async function signOut() {
+
     await supabase.auth.signOut();
+
+    setSession(null);
     setTodos([]);
   }
 
@@ -134,21 +146,33 @@ function App() {
 
   async function addTodo() {
 
-    if (!text || !session?.user) return;
+    if (!text.trim()) {
+      alert("Enter todo text");
+      return;
+    }
 
-    const { error } = await supabase
+    setSaving(true);
+
+    const { data, error } = await supabase
       .from("todos")
       .insert([
         {
-          text,
+          text: text.trim(),
           user_id: session.user.id
         }
-      ]);
+      ])
+      .select()
+      .single();
 
-    if (!error) {
-      setText("");
-      getTodos();
+    setSaving(false);
+
+    if (error) {
+      alert(error.message);
+      return;
     }
+
+    setTodos(prev => [data, ...prev]);
+    setText("");
   }
 
   // ======================
@@ -157,12 +181,18 @@ function App() {
 
   async function deleteTodo(id) {
 
-    await supabase
+    const { error } = await supabase
       .from("todos")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", session.user.id);
 
-    getTodos();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setTodos(prev => prev.filter(todo => todo.id !== id));
   }
 
   // ======================
@@ -170,23 +200,45 @@ function App() {
   // ======================
 
   function startEdit(todo) {
+
     setEditingId(todo.id);
     setEditingText(todo.text);
   }
 
   async function updateTodo(id) {
 
-    await supabase
+    if (!editingText.trim()) {
+      alert("Todo cannot be empty");
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase
       .from("todos")
       .update({
-        text: editingText
+        text: editingText.trim()
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", session.user.id);
+
+    setSaving(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setTodos(prev =>
+      prev.map(todo =>
+        todo.id === id
+          ? { ...todo, text: editingText.trim() }
+          : todo
+      )
+    );
 
     setEditingId(null);
     setEditingText("");
-
-    getTodos();
   }
 
   // ======================
@@ -194,7 +246,11 @@ function App() {
   // ======================
 
   if (loading) {
-    return <h2>Loading...</h2>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <h2 className="text-xl font-semibold">Loading...</h2>
+      </div>
+    );
   }
 
   // ======================
@@ -205,10 +261,16 @@ function App() {
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
 
-          <h1 className="mb-2 text-center text-3xl font-bold text-gray-900">Todo App</h1>
-          <p className="mb-8 text-center text-gray-500">Sing in to manage your Task</p>
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+
+          <h1 className="mb-2 text-center text-3xl font-bold text-gray-900">
+            Todo App
+          </h1>
+
+          <p className="mb-8 text-center text-gray-500">
+            Sign in to manage your tasks
+          </p>
 
           <input
             type="email"
@@ -217,9 +279,8 @@ function App() {
             onChange={(e) =>
               setEmail(e.target.value)
             }
-            className="mb-4 w-full rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="mb-4 w-full rounded-xl border px-5 py-4"
           />
-
 
           <input
             type="password"
@@ -228,23 +289,31 @@ function App() {
             onChange={(e) =>
               setPassword(e.target.value)
             }
-            className="mb-6 w-full rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="mb-6 w-full rounded-xl border px-5 py-4"
           />
+
           <div className="flex flex-col gap-4 sm:flex-row">
-            <button onClick={signUp}
-              className="flex-1 rounded-b-xl bg-indigo-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-indigo-700 active:scale-[0.98]"
+
+            <button
+              onClick={signUp}
+              disabled={saving}
+              className="flex-1 rounded-xl bg-indigo-600 px-6 py-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              Sign Up
+              {saving ? "Please wait..." : "Sign Up"}
             </button>
 
             <button
               onClick={signIn}
-              className="flex-1 rounded-b-xl bg-indigo-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-indigo-700 active:scale-[0.98]"
+              disabled={saving}
+              className="flex-1 rounded-xl bg-indigo-600 px-6 py-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              Sign In
+              {saving ? "Please wait..." : "Sign In"}
             </button>
+
           </div>
+
         </div>
+
       </div>
     );
   }
@@ -256,69 +325,72 @@ function App() {
   return (
 
     <div className="mx-auto min-h-screen max-w-md bg-gray-50 px-4 pb-12 pt-6">
-      <header className="mb-8 flex items-center justify-between border-b border-gray-200 pb-4">
-  {/* Title */}
-  <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
-    My Todo
-  </h1>
 
-  {/* Logout Button */}
-  <button
-    onClick={signOut}
-    className="
-      rounded-lg bg-red-500 px-5 py-2.5 
-      text-sm font-medium text-white 
-      shadow-sm transition-all duration-200 
-      hover:bg-red-600 hover:shadow-md
-      active:scale-95 active:bg-red-700
-      focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1
-    "
-  >
-    Logout
-  </button>
-</header>
+      <header className="mb-8 flex items-center justify-between border-b pb-4">
 
-      <div className="mb-10 flex gap-3">
-      <input
-        value={text}
-        onChange={(e) =>
-          setText(e.target.value)
-        }
-        placeholder="What needs to be done?"
-        className="flex-1  rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-emerald-500 focus:outline-none focus:right-2 focus:ring-emerald-200"
-      />
-      <button
-        onClick={addTodo}
-        style={{ marginLeft: 10 }}
-        className="rounded-xl bg-emerald-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-emerald-700 active:scale-[0.98]"
-      >
-        Add
-      </button>
+        <h1 className="text-2xl font-semibold">
+          My Todo
+        </h1>
+
+        <button
+          onClick={signOut}
+          className="rounded-lg bg-red-500 px-5 py-2 text-white hover:bg-red-600"
+        >
+          Logout
+        </button>
+
+      </header>
+
+      <div className="mb-6 flex gap-3">
+
+        <input
+          value={text}
+          onChange={(e) =>
+            setText(e.target.value)
+          }
+          placeholder="What needs to be done?"
+          className="flex-1 rounded-xl border px-5 py-4"
+        />
+
+        <button
+          onClick={addTodo}
+          disabled={saving}
+          className="rounded-xl bg-emerald-600 px-6 py-4 text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Add
+        </button>
+
       </div>
 
-
       <ul className="space-y-4">
+
         {todos.map(todo => (
-          <li key={todo.id}
-            className="rounded-2xl bg-white p-5 shadow-sm transition hover:shadow-md"
+
+          <li
+            key={todo.id}
+            className="rounded-xl bg-white p-4 shadow"
           >
+
             {editingId === todo.id ? (
-              <div className="flex flex-col gap-3">
+
+              <div className="flex flex-col gap-2">
+
                 <input
                   value={editingText}
                   onChange={(e) =>
                     setEditingText(e.target.value)
                   }
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="rounded-xl border px-4 py-3"
                 />
-                <div className="flex gap-3">
+
+                <div className="flex gap-2">
 
                   <button
                     onClick={() =>
                       updateTodo(todo.id)
                     }
-                    className="flex-1 rounded-xl bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-700"
-                    >
+                    className="flex-1 rounded-xl bg-green-600 py-2 text-white"
+                  >
                     Save
                   </button>
 
@@ -326,35 +398,47 @@ function App() {
                     onClick={() =>
                       setEditingId(null)
                     }
-                    className="flex-1 rounded-xl bg-gray-600 py-3 font-medium text-gray-800 hover:bg-gray-300"
-                    >
+                    className="flex-1 rounded-xl bg-gray-400 py-2 text-white"
+                  >
                     Cancel
                   </button>
-                 </div>
+
+                </div>
+
               </div>
+
             ) : (
-              <div className="flex items-center justify-between gap-4">
-                <span className="flex text-lg text-gray-900">{todo.text}</span>
+
+              <div className="flex items-center justify-between">
+
+                <span>
+                  {todo.text}
+                </span>
+
                 <div className="flex gap-2">
+
                   <button
                     onClick={() =>
                       startEdit(todo)
                     }
-                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
-                    >
+                    className="rounded bg-yellow-500 px-3 py-1 text-white"
+                  >
                     Edit
                   </button>
 
-                <button
-                  onClick={() =>
-                    deleteTodo(todo.id)
-                  }
-                  className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+                  <button
+                    onClick={() =>
+                      deleteTodo(todo.id)
+                    }
+                    className="rounded bg-red-500 px-3 py-1 text-white"
                   >
-                  Delete
-                </button>
-                  </div>
+                    Delete
+                  </button>
+
+                </div>
+
               </div>
+
             )}
 
           </li>
@@ -363,7 +447,10 @@ function App() {
 
       </ul>
 
-        <div>v@1.1.1</div>
+      <div className="mt-6 text-center text-sm text-gray-400">
+        v@1.2.0
+      </div>
+
     </div>
 
   );

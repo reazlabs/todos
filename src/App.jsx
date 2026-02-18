@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import './App.css';
 
 function App() {
 
@@ -203,42 +204,47 @@ function App() {
   if (!session) {
 
     return (
-      <div style={{ padding: 20 }}>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
 
-        <h1>Supabase Auth</h1>
+          <h1 className="mb-2 text-center text-3xl font-bold text-gray-900">Todo App</h1>
+          <p className="mb-8 text-center text-gray-500">Sing in to manage your Task</p>
 
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-        />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
+            className="mb-4 w-full rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
 
-        <br /><br />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            className="mb-6 w-full rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <button onClick={signUp}
+              className="flex-1 rounded-b-xl bg-indigo-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-indigo-700 active:scale-[0.98]"
+            >
+              Sign Up
+            </button>
 
-        <br /><br />
-
-        <button onClick={signUp}>
-          Sign Up
-        </button>
-
-        <button
-          onClick={signIn}
-          style={{ marginLeft: 10 }}
-        >
-          Sign In
-        </button>
-
+            <button
+              onClick={signIn}
+              className="flex-1 rounded-b-xl bg-indigo-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-indigo-700 active:scale-[0.98]"
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

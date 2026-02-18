@@ -256,14 +256,28 @@ function App() {
   return (
 
     <div className="mx-auto min-h-screen max-w-md bg-gray-50 px-4 pb-12 pt-6">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">My Todo</h1>
-        <button onClick={signOut}
-          className="rounded-lg bg-red-500 px-5 py-2.5 text-sm font-medium text-white shadwo-sm transition hover:bg-red-600 active:scale-95"
-        >
-          Logout
-        </button>
-      </header>
+      <header className="mb-8 flex items-center justify-between border-b border-gray-200 pb-4">
+  {/* Title */}
+  <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+    My Todo
+  </h1>
+
+  {/* Logout Button */}
+  <button
+    onClick={signOut}
+    className="
+      rounded-lg bg-red-500 px-5 py-2.5 
+      text-sm font-medium text-white 
+      shadow-sm transition-all duration-200 
+      hover:bg-red-600 hover:shadow-md
+      active:scale-95 active:bg-red-700
+      focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1
+    "
+  >
+    Logout
+  </button>
+</header>
+
       <div className="mb-10 flex gap-3">
       <input
         value={text}

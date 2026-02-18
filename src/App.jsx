@@ -251,7 +251,7 @@ function App() {
 
     <div style={{ padding: 20 }}>
 
-      <h1>Supabase Todo App</h1>
+      <h1 className="text-3xl">Supabase Todo App</h1>
 
       <button onClick={signOut}>
         Logout

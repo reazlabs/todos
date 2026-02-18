@@ -363,6 +363,7 @@ function App() {
 
       </ul>
 
+        <div>v@1.1.1</div>
     </div>
 
   );

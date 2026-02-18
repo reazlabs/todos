@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import "./App.css";
+import { Search } from "lucide-react";
 
 function App() {
 
@@ -22,8 +22,15 @@ function App() {
   const [todos, setTodos] = useState([]);
   const [text, setText] = useState("");
 
-  const [editingId, setEditingId] = useState(null);
-  const [editingText, setEditingText] = useState("");
+  // ======================
+  // SEARCH + FILTER STATES
+  // ======================
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [filter, setFilter] = useState("all"); 
+  // all | completed | pending
 
   // ======================
   // AUTH LISTENER
@@ -42,9 +49,7 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
+      (_event, session) => setSession(session)
     );
 
     return () => subscription.unsubscribe();
@@ -52,18 +57,48 @@ function App() {
   }, []);
 
   // ======================
-  // GET TODOS
+  // SEARCH DEBOUNCE
+  // ======================
+
+  useEffect(() => {
+
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => clearTimeout(timer);
+
+  }, [search]);
+
+  // ======================
+  // GET TODOS FROM SUPABASE
   // ======================
 
   async function getTodos() {
 
     if (!session?.user) return;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("todos")
       .select("*")
       .eq("user_id", session.user.id)
       .order("created_at", { ascending: false });
+
+    // search filter
+    if (debouncedSearch) {
+      query = query.ilike("text", `%${debouncedSearch}%`);
+    }
+
+    // completed filter
+    if (filter === "completed") {
+      query = query.eq("completed", true);
+    }
+
+    if (filter === "pending") {
+      query = query.eq("completed", false);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       alert(error.message);
@@ -74,386 +109,278 @@ function App() {
   }
 
   useEffect(() => {
-    if (session) getTodos();
-  }, [session]);
+    getTodos();
+  }, [session, debouncedSearch, filter]);
 
   // ======================
-  // SIGN UP
+  // AUTH FUNCTIONS
   // ======================
 
   async function signUp() {
-
-    if (!email.trim() || !password.trim()) {
-      alert("Enter email and password");
-      return;
-    }
-
     setSaving(true);
-
     const { error } = await supabase.auth.signUp({
       email,
       password
     });
-
     setSaving(false);
 
-    if (error) {
-      alert(error.message);
-    } else {
-      alert("Signup successful! Now sign in.");
-    }
+    if (error) alert(error.message);
+    else alert("Signup successful");
   }
 
-  // ======================
-  // SIGN IN
-  // ======================
-
   async function signIn() {
-
-    if (!email.trim() || !password.trim()) {
-      alert("Enter email and password");
-      return;
-    }
-
     setSaving(true);
-
     const { error } =
       await supabase.auth.signInWithPassword({
         email,
         password
       });
-
     setSaving(false);
 
     if (error) alert(error.message);
   }
 
-  // ======================
-  // SIGN OUT
-  // ======================
-
   async function signOut() {
-
     await supabase.auth.signOut();
-
     setSession(null);
-    setTodos([]);
   }
 
   // ======================
-  // ADD TODO
+  // TODO FUNCTIONS
   // ======================
 
   async function addTodo() {
 
-    if (!text.trim()) {
-      alert("Enter todo text");
-      return;
-    }
+    if (!text.trim()) return;
 
-    setSaving(true);
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("todos")
-      .insert([
-        {
-          text: text.trim(),
-          user_id: session.user.id
-        }
-      ])
-      .select()
-      .single();
-
-    setSaving(false);
+      .insert({
+        text,
+        user_id: session.user.id
+      });
 
     if (error) {
       alert(error.message);
       return;
     }
 
-    setTodos(prev => [data, ...prev]);
     setText("");
+    getTodos();
   }
-
-  // ======================
-  // DELETE TODO
-  // ======================
 
   async function deleteTodo(id) {
 
-    const { error } = await supabase
+    await supabase
       .from("todos")
       .delete()
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .eq("id", id);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setTodos(prev => prev.filter(todo => todo.id !== id));
+    getTodos();
   }
 
-  // ======================
-  // EDIT TODO
-  // ======================
+  async function toggleComplete(todo) {
 
-  function startEdit(todo) {
-
-    setEditingId(todo.id);
-    setEditingText(todo.text);
-  }
-
-  async function updateTodo(id) {
-
-    if (!editingText.trim()) {
-      alert("Todo cannot be empty");
-      return;
-    }
-
-    setSaving(true);
-
-    const { error } = await supabase
+    await supabase
       .from("todos")
       .update({
-        text: editingText.trim()
+        completed: !todo.completed
       })
-      .eq("id", id)
-      .eq("user_id", session.user.id);
+      .eq("id", todo.id);
 
-    setSaving(false);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setTodos(prev =>
-      prev.map(todo =>
-        todo.id === id
-          ? { ...todo, text: editingText.trim() }
-          : todo
-      )
-    );
-
-    setEditingId(null);
-    setEditingText("");
+    getTodos();
   }
 
   // ======================
-  // LOADING UI
+  // LOADING
   // ======================
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <h2 className="text-xl font-semibold">Loading...</h2>
-      </div>
-    );
-  }
+  if (loading)
+    return <div className="p-10">Loading...</div>;
 
   // ======================
   // LOGIN UI
   // ======================
 
-  if (!session) {
-
+  if (!session)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 px-4">
 
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
 
-          <h1 className="mb-2 text-center text-3xl font-bold text-gray-900">
-            Todo App
+        <div className="w-80 bg-white p-6 rounded-xl shadow">
+
+          <h1 className="mb-4 text-xl font-bold">
+            Login
           </h1>
 
-          <p className="mb-8 text-center text-gray-500">
-            Sign in to manage your tasks
-          </p>
-
           <input
-            type="email"
             placeholder="Email"
-            value={email}
+            className="mb-3 w-full border p-2 rounded"
             onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            className="mb-4 w-full rounded-xl border px-5 py-4"
+              setEmail(e.target.value)}
           />
 
           <input
             type="password"
             placeholder="Password"
-            value={password}
+            className="mb-3 w-full border p-2 rounded"
             onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            className="mb-6 w-full rounded-xl border px-5 py-4"
+              setPassword(e.target.value)}
           />
 
-          <div className="flex flex-col gap-4 sm:flex-row">
+          <button
+            onClick={signIn}
+            className="w-full bg-indigo-600 text-white p-2 rounded mb-2">
+            Sign In
+          </button>
 
-            <button
-              onClick={signUp}
-              disabled={saving}
-              className="flex-1 rounded-xl bg-indigo-600 px-6 py-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {saving ? "Please wait..." : "Sign Up"}
-            </button>
-
-            <button
-              onClick={signIn}
-              disabled={saving}
-              className="flex-1 rounded-xl bg-indigo-600 px-6 py-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {saving ? "Please wait..." : "Sign In"}
-            </button>
-
-          </div>
+          <button
+            onClick={signUp}
+            className="w-full bg-gray-600 text-white p-2 rounded">
+            Sign Up
+          </button>
 
         </div>
 
       </div>
     );
-  }
 
   // ======================
-  // TODO UI
+  // MAIN UI
   // ======================
 
   return (
 
-    <div className="mx-auto min-h-screen max-w-md bg-gray-50 px-4 pb-12 pt-6">
+    <div className="max-w-md mx-auto p-4">
 
-      <header className="mb-8 flex items-center justify-between border-b pb-4">
+      {/* Header */}
+      <div className="flex justify-between mb-4">
 
-        <h1 className="text-2xl font-semibold">
-          My Todo
+        <h1 className="text-xl font-bold">
+          My Todos
         </h1>
 
         <button
           onClick={signOut}
-          className="rounded-lg bg-red-500 px-5 py-2 text-white hover:bg-red-600"
-        >
+          className="bg-red-500 text-white px-3 py-1 rounded">
           Logout
         </button>
 
-      </header>
+      </div>
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-3">
+      {/* Add */}
+      <div className="flex gap-2 mb-4">
 
-  <input
-    type="text"
-    value={text}
-    onChange={(e) => setText(e.target.value)}
-    placeholder="What needs to be done?"
-    className="w-full sm:flex-1 rounded-xl border border-gray-300 px-5 py-4 outline-none focus:ring-2 focus:ring-emerald-400"
-  />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="flex-1 border p-2 rounded"
+          placeholder="Add todo"
+        />
 
-  <button
-    onClick={addTodo}
-    disabled={saving}
-    className="w-full sm:w-auto rounded-xl bg-emerald-600 px-6 py-4 text-white hover:bg-emerald-700 disabled:opacity-50"
-  >
-    Add
-  </button>
+        <button
+          onClick={addTodo}
+          className="bg-green-600 text-white px-4 rounded">
+          Add
+        </button>
 
-</div>
+      </div>
 
-      <ul className="space-y-4">
+      {/* Search with icon */}
+      <div className="relative mb-4">
+
+        <Search
+          size={18}
+          className="absolute left-3 top-3 text-gray-400"
+        />
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search todos..."
+          className="w-full border pl-10 p-2 rounded"
+        />
+
+      </div>
+
+      {/* Filter buttons */}
+      <div className="flex gap-2 mb-4">
+
+        <button
+          onClick={() => setFilter("all")}
+          className={`px-3 py-1 rounded ${
+            filter === "all"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-200"
+          }`}>
+          All
+        </button>
+
+        <button
+          onClick={() => setFilter("completed")}
+          className={`px-3 py-1 rounded ${
+            filter === "completed"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-200"
+          }`}>
+          Completed
+        </button>
+
+        <button
+          onClick={() => setFilter("pending")}
+          className={`px-3 py-1 rounded ${
+            filter === "pending"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-200"
+          }`}>
+          Pending
+        </button>
+
+      </div>
+
+      {/* Todo List */}
+      <div className="space-y-2">
 
         {todos.map(todo => (
 
-          <li
+          <div
             key={todo.id}
-            className="rounded-xl bg-white p-4 shadow"
-          >
+            className="flex justify-between bg-white p-3 rounded shadow">
 
-            {editingId === todo.id ? (
+            <div className="flex gap-2">
 
-              <div className="flex flex-col gap-2">
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onChange={() =>
+                  toggleComplete(todo)}
+              />
 
-                <input
-                  value={editingText}
-                  onChange={(e) =>
-                    setEditingText(e.target.value)
-                  }
-                  className="rounded-xl border px-4 py-3"
-                />
+              <span className={
+                todo.completed
+                  ? "line-through text-gray-400"
+                  : ""
+              }>
+                {todo.text}
+              </span>
 
-                <div className="flex gap-2">
+            </div>
 
-                  <button
-                    onClick={() =>
-                      updateTodo(todo.id)
-                    }
-                    className="flex-1 rounded-xl bg-green-600 py-2 text-white"
-                  >
-                    Save
-                  </button>
+            <button
+              onClick={() =>
+                deleteTodo(todo.id)}
+              className="text-red-500">
+              Delete
+            </button>
 
-                  <button
-                    onClick={() =>
-                      setEditingId(null)
-                    }
-                    className="flex-1 rounded-xl bg-gray-400 py-2 text-white"
-                  >
-                    Cancel
-                  </button>
-
-                </div>
-
-              </div>
-
-            ) : (
-
-              <div className="flex items-center justify-between">
-
-                <span>
-                  {todo.text}
-                </span>
-
-                <div className="flex gap-2">
-
-                  <button
-                    onClick={() =>
-                      startEdit(todo)
-                    }
-                    className="rounded bg-yellow-500 px-3 py-1 text-white"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      deleteTodo(todo.id)
-                    }
-                    className="rounded bg-red-500 px-3 py-1 text-white"
-                  >
-                    Delete
-                  </button>
-
-                </div>
-
-              </div>
-
-            )}
-
-          </li>
+          </div>
 
         ))}
 
-      </ul>
-
-      <div className="mt-6 text-center text-sm text-gray-400">
-        v@1.2.0
       </div>
 
     </div>
-
   );
-
 }
 
 export default App;

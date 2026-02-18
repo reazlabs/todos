@@ -255,88 +255,92 @@ function App() {
 
   return (
 
-    <div style={{ padding: 20 }}>
-
-      <h1 className="text-3xl">Supabase Todo App</h1>
-
-      <button onClick={signOut}>
-        Logout
-      </button>
-
-      <br /><br />
-
+    <div className="mx-auto min-h-screen max-w-md bg-gray-50 px-4 pb-12 pt-6">
+      <header className="mb-8 flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">My Todo</h1>
+        <button onClick={signOut}
+          className="rounded-lg bg-red-500 px-5 py-2.5 text-sm font-medium text-white shadwo-sm transition hover:bg-red-600 active:scale-95"
+        >
+          Logout
+        </button>
+      </header>
+      <div className="mb-10 flex gap-3">
       <input
         value={text}
         onChange={(e) =>
           setText(e.target.value)
         }
-        placeholder="Enter todo"
+        placeholder="What needs to be done?"
+        className="flex-1  rounded-xl border border-gray-300 px-5 py-4 text-base focus:border-emerald-500 focus:outline-none focus:right-2 focus:ring-emerald-200"
       />
-
       <button
         onClick={addTodo}
         style={{ marginLeft: 10 }}
+        className="rounded-xl bg-emerald-600 px-6 py-4 font-semibold text-white shadow-md transition hover:bg-emerald-700 active:scale-[0.98]"
       >
         Add
       </button>
+      </div>
 
-      <ul>
 
+      <ul className="space-y-4">
         {todos.map(todo => (
-
-          <li key={todo.id}>
-
+          <li key={todo.id}
+            className="rounded-2xl bg-white p-5 shadow-sm transition hover:shadow-md"
+          >
             {editingId === todo.id ? (
-              <>
-
+              <div className="flex flex-col gap-3">
                 <input
                   value={editingText}
                   onChange={(e) =>
                     setEditingText(e.target.value)
                   }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
+                <div className="flex gap-3">
 
-                <button
-                  onClick={() =>
-                    updateTodo(todo.id)
-                  }
-                >
-                  Save
-                </button>
+                  <button
+                    onClick={() =>
+                      updateTodo(todo.id)
+                    }
+                    className="flex-1 rounded-xl bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-700"
+                    >
+                    Save
+                  </button>
 
-                <button
-                  onClick={() =>
-                    setEditingId(null)
-                  }
-                >
-                  Cancel
-                </button>
-
-              </>
+                  <button
+                    onClick={() =>
+                      setEditingId(null)
+                    }
+                    className="flex-1 rounded-xl bg-gray-600 py-3 font-medium text-gray-800 hover:bg-gray-300"
+                    >
+                    Cancel
+                  </button>
+                 </div>
+              </div>
             ) : (
-              <>
-
-                {todo.text}
-
-                <button
-                  onClick={() =>
-                    startEdit(todo)
-                  }
-                  style={{ marginLeft: 10 }}
-                >
-                  Edit
-                </button>
+              <div className="flex items-center justify-between gap-4">
+                <span className="flex text-lg text-gray-900">{todo.text}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      startEdit(todo)
+                    }
+                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+                    >
+                    Edit
+                  </button>
 
                 <button
                   onClick={() =>
                     deleteTodo(todo.id)
                   }
-                  style={{ marginLeft: 10 }}
-                >
+                  className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+                  >
                   Delete
                 </button>
-
-              </>
+                  </div>
+              </div>
             )}
 
           </li>

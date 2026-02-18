@@ -341,26 +341,25 @@ function App() {
 
       </header>
 
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-col sm:flex-row gap-3">
 
-        <input
-          value={text}
-          onChange={(e) =>
-            setText(e.target.value)
-          }
-          placeholder="What needs to be done?"
-          className="flex-1 rounded-xl border px-5 py-4"
-        />
+  <input
+    type="text"
+    value={text}
+    onChange={(e) => setText(e.target.value)}
+    placeholder="What needs to be done?"
+    className="w-full sm:flex-1 rounded-xl border border-gray-300 px-5 py-4 outline-none focus:ring-2 focus:ring-emerald-400"
+  />
 
-        <button
-          onClick={addTodo}
-          disabled={saving}
-          className="rounded-xl bg-emerald-600 px-6 py-4 text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          Add
-        </button>
+  <button
+    onClick={addTodo}
+    disabled={saving}
+    className="w-full sm:w-auto rounded-xl bg-emerald-600 px-6 py-4 text-white hover:bg-emerald-700 disabled:opacity-50"
+  >
+    Add
+  </button>
 
-      </div>
+</div>
 
       <ul className="space-y-4">
 
